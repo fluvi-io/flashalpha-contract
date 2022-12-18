@@ -21,7 +21,7 @@ async function main() {
   await (await usdc.approve(flashalpha.address, ethers.constants.MaxUint256)).wait();
   await (await flashalpha.deposit(usdc.address, "100000000000000000000", 1)).wait();
   */
-  await (await flashalpha.depositNative(1, {value: 1, gasLimit: 1000000})).wait();
+  console.log(await flashalpha.callStatic.depositNative(1, {value: "10000000000000000"}))
 }
 
 // We recommend this pattern to be able to use async/await everywhere
