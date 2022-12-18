@@ -1,3 +1,3 @@
 # FlashAlpha
 
-Accrue additional yields from flashloan fees, on top of other protocol's yield!
+Accrue additional yield from flashloan fees, on top of other protocols'!
