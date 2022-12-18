@@ -5,16 +5,17 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 import "./interface/IWETH.sol";
 import "./interface/IERC3156FlashLender.sol";
 import "./interface/IWETH.sol";
 import "./lib/Math.sol";
 import "./strategy/Strategy.sol";
-import "./strategy/HodlStrategy.sol";
+import "./strategy/SelfHodlStrategy.sol";
 
 function min(uint256 a, uint256 b) pure returns (uint256) {return a < b ? a : b;}
 
-contract FlashAlpha is IERC3156FlashLender, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract FlashAlpha is IERC3156FlashLender, OwnableUpgradeable, ReentrancyGuardUpgradeable, ERC1967Upgrade {
     using SafeERC20 for IERC20;
     using SafeERC20 for IWETH;
     
@@ -32,7 +33,8 @@ contract FlashAlpha is IERC3156FlashLender, OwnableUpgradeable, ReentrancyGuardU
     constructor(IWETH _weth, Strategy _defaultStrategy) {weth = _weth; defaultStrategy = _defaultStrategy;}
 
     function initialize() external initializer {
-        __Ownable_init();
+        
+        _transferOwnership(tx.origin);
         __ReentrancyGuard_init();
     }
     bytes32 public constant CALLBACK_SUCCESS = keccak256("ERC3156FlashBorrower.onFlashLoan");
@@ -78,7 +80,6 @@ contract FlashAlpha is IERC3156FlashLender, OwnableUpgradeable, ReentrancyGuardU
     function _deposit(address from, IERC20 token, uint256 amount, uint8 fee) internal {
         uint256 balance = maxFlashLoan(token);
         uint256 balance2 = feeShares[token][fee];
-
         uint256 newShares = balance == 0 ? amount : Math.muldiv(totalShares[token], amount, balance);
         uint256 newShares2 = balance2 == 0 ? newShares : Math.muldiv(positionTotalShares[token][fee], newShares, balance2);
 
@@ -124,12 +125,15 @@ contract FlashAlpha is IERC3156FlashLender, OwnableUpgradeable, ReentrancyGuardU
 
         return actualAmount;
     }
+
     function accoutBalance(IERC20 token, address addr) external view returns (uint256[] memory) {
-        uint256[] memory shares = new uint256[](maxFeeBP);
+        uint256[] memory amount = new uint256[](maxFeeBP);
         for (uint8 i = 0; i <= maxFeeBP; i++) {
-            shares[i] = Math.muldiv(positionShares[token][i][addr], maxFlashLoan(token), totalShares[token]);
+            if (positionShares[token][i][addr] > 0) {
+                amount[i] = Math.muldiv(Math.muldiv(maxFlashLoan(token), feeShares[token][i], totalShares[token]), positionShares[token][i][addr], positionTotalShares[token][i]);
+            }
         }
-        return shares;
+        return amount;
     }
     
 
@@ -187,4 +191,9 @@ contract FlashAlpha is IERC3156FlashLender, OwnableUpgradeable, ReentrancyGuardU
         strategies[token] = strat;
     }
 
+    function upgrade(address newImplementation) external onlyOwner {
+        _upgradeTo(newImplementation);
+    }
+
+    receive() external payable {}
 }
