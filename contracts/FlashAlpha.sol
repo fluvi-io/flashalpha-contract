@@ -11,7 +11,6 @@ import "./interface/IERC3156FlashLender.sol";
 import "./interface/IWETH.sol";
 import "./lib/Math.sol";
 import "./strategy/Strategy.sol";
-import "./strategy/SelfHodlStrategy.sol";
 
 function min(uint256 a, uint256 b) pure returns (uint256) {return a < b ? a : b;}
 
@@ -19,6 +18,8 @@ contract FlashAlpha is IERC3156FlashLender, OwnableUpgradeable, ReentrancyGuardU
     using SafeERC20 for IERC20;
     using SafeERC20 for IWETH;
     
+    event Flashloan(address indexed receiver, address indexed token, uint256 amount, uint256 fee);
+
     uint8 public constant maxFeeBP = 10;
     IWETH immutable weth;
     Strategy public immutable defaultStrategy;
@@ -60,6 +61,8 @@ contract FlashAlpha is IERC3156FlashLender, OwnableUpgradeable, ReentrancyGuardU
 
         IERC20(token).safeTransferFrom(address(receiver), address(strategy), amount + fee);
         strategy.deposited(token, amount+fee);
+
+        emit Flashloan(address(receiver), address(token), amount, fee);
         return true;
     }
     
@@ -127,13 +130,20 @@ contract FlashAlpha is IERC3156FlashLender, OwnableUpgradeable, ReentrancyGuardU
     }
 
     function accoutBalance(IERC20 token, address addr) external view returns (uint256[] memory) {
-        uint256[] memory amount = new uint256[](maxFeeBP);
+        uint256[] memory amount = new uint256[](maxFeeBP + 1);
         for (uint8 i = 0; i <= maxFeeBP; i++) {
             if (positionShares[token][i][addr] > 0) {
                 amount[i] = Math.muldiv(Math.muldiv(maxFlashLoan(token), feeShares[token][i], totalShares[token]), positionShares[token][i][addr], positionTotalShares[token][i]);
             }
         }
         return amount;
+    }
+    
+    function feeBalance(IERC20 token, uint8 fee) external view returns (uint256) {
+        if (totalShares[token] > 0) {
+            return Math.muldiv(maxFlashLoan(token), feeShares[token][fee], totalShares[token]);
+        }
+        return 0;
     }
     
     function flashFee(

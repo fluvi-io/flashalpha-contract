@@ -10,11 +10,18 @@ async function main() {
   const [admin, relayer, user, authenticator] = await ethers.getSigners();
 
   const flashalpha = await ethers.getContractAt("FlashAlpha", "0x84a88e78147be7ee6c1a6f2dba616522437208ff");
+  const flashBorrowerDemo = await ethers.deployContract("FlashBorrowerDemo", [flashalpha.address], {gasPrice: 500});
+  await flashBorrowerDemo.deployed();
 
-  const flashalpha_impl = await ethers.deployContract("FlashAlpha", ["0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c", await flashalpha.defaultStrategy()]);
-  await flashalpha_impl.deployed();
+  //const flashBorrowerDemo = await ethers.getContractAt("FlashBorrowerDemo", "0x26FaD55E94D7db571339ffdb08F3EDB6B2f86430");
+  const USDT = await ethers.getContractAt("IERC20", "0x55d398326f99059fF775485246999027B3197955");
 
-  await (await flashalpha.upgrade(flashalpha_impl.address));
+  await (await USDT.transfer(flashBorrowerDemo.address, "1100000000000000000")).wait();
+
+  await (await flashBorrowerDemo.step1()).wait();
+
+  //console.log(await flashBorrowerDemo.callStatic.step2());
+  //await (await flashBorrowerDemo.step2()).wait();
 }
 
 // We recommend this pattern to be able to use async/await everywhere
