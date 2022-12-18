@@ -136,13 +136,6 @@ contract FlashAlpha is IERC3156FlashLender, OwnableUpgradeable, ReentrancyGuardU
         return amount;
     }
     
-
-    /**
-     * @dev The fee to be charged for a given loan. Internal function with no checks.
-     * @param token The loan currency.
-     * @param amount The amount of tokens lent.
-     * @return The amount of `token` to be charged for the loan, on top of the returned principal.
-     */
     function flashFee(
         IERC20 token,
         uint256 amount
